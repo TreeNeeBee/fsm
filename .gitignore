@@ -1,0 +1,9 @@
+**/build
+**/.vscode
+/output
+/Docs
+**/*.log
+**/*.pyc
+**/*.bak
+.gitconfig
+/BuildTemplate
