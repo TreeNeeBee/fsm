@@ -7,3 +7,4 @@
 **/*.bak
 .gitconfig
 /BuildTemplate
+a.out

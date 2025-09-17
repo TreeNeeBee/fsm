@@ -16,14 +16,14 @@ static volatile char    s_innerInputChar = ' ';
 // ======== inner variable end ======== 
 
 // ======== transfer check ======== 
-static bool         checkTransEnvironment( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm );
+static fsm_bool_t         checkTransEnvironment( fsm_state_t from, fsm_state_t to, void *fsm );
 
 // DEF_SWC_INNER_TEMPLATE_STATE_A <-> DEF_SWC_INNER_TEMPLATE_STATE_B
-static bool         checkTransStandby2A( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm );
-static bool         checkTransA2B( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm );
-static bool         checkTransA2C( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm );
-static bool         checkTransB2C( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm );
-static bool         checkTransC2Standby( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm );
+static fsm_bool_t         checkTransStandby2A( fsm_state_t from, fsm_state_t to, void *fsm );
+static fsm_bool_t         checkTransA2B( fsm_state_t from, fsm_state_t to, void *fsm );
+static fsm_bool_t         checkTransA2C( fsm_state_t from, fsm_state_t to, void *fsm );
+static fsm_bool_t         checkTransB2C( fsm_state_t from, fsm_state_t to, void *fsm );
+static fsm_bool_t         checkTransC2Standby( fsm_state_t from, fsm_state_t to, void *fsm );
 // ======== transfer check end ======== 
 
 // ======== state action ======== 
@@ -45,10 +45,10 @@ static int32_t      actionCExit( void *item );
 // ======== state action end ======== 
 
 // ======== fsm ======== 
-static bool         exampleFsmInnerInit( void *fsm );
-static bool         exampleFsmInnerRoutine( void *fsm );
-static bool         exampleFsmInnerExit( void *fsm );
-static int32_t      exampleFsmTransTo( TYPE_SWC_FSM_STATE state, bool bForce );
+static fsm_bool_t       exampleFsmInnerInit( void *fsm );
+static fsm_bool_t       exampleFsmInnerRoutine( void *fsm );
+static fsm_bool_t       exampleFsmInnerExit( void *fsm );
+static int32_t          exampleFsmTransTo( fsm_state_t state, fsm_bool_t bForce );
 // ======== fsm end ======== 
 
 #define SWC_FSM_CONTEXT_ID_EXAMPLE              ( 1U )
@@ -70,26 +70,26 @@ DECLARE_SWC_FSM_CONTEXT( Example, SWC_FSM_CONTEXT_ID_EXAMPLE,
             ),
             checkTransEnvironment, DEF_STATE_Example_Standby, SWC_FSM_ROUTINE_INTERVAL_EXAMPLE, exampleFsmInnerInit, exampleFsmInnerRoutine, exampleFsmInnerExit )
 
-bool exampleFsmInnerInit( void *fsm )       { UNUSED( fsm ); printf( "exampleFsmInnerInit\n" ); return true; }
-bool exampleFsmInnerRoutine( void *fsm )    { UNUSED( fsm ); return true; }
-bool exampleFsmInnerExit( void *fsm )       { UNUSED( fsm ); printf( "exampleFsmInnerExit\n" ); return true; }
+fsm_bool_t exampleFsmInnerInit( void *fsm )       { UNUSED( fsm ); printf( "exampleFsmInnerInit\n" ); return DEF_FSM_TRUE; }
+fsm_bool_t exampleFsmInnerRoutine( void *fsm )    { UNUSED( fsm ); return DEF_FSM_TRUE; }
+fsm_bool_t exampleFsmInnerExit( void *fsm )       { UNUSED( fsm ); printf( "exampleFsmInnerExit\n" ); return DEF_FSM_TRUE; }
 
-int32_t exampleFsmTransTo( TYPE_SWC_FSM_STATE state, bool bForce )
+int32_t exampleFsmTransTo( fsm_state_t state, fsm_bool_t bForce )
 {
     printf( "exampleFsmTransTo from %d to %d, %d\n", swcFsmGetCurState( DECLARE_SWC_FSM_CONTEXT_REF( Example ) ), state, bForce ? 1 : 0 );
     return swcFsmTransTo( state, bForce, DECLARE_SWC_FSM_CONTEXT_REF( Example ) );
 }
 
-bool checkTransEnvironment( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm )
+fsm_bool_t checkTransEnvironment( fsm_state_t from, fsm_state_t to, void *fsm )
 {
     UNUSED( from );
     UNUSED( to );
     UNUSED( fsm );
 
-    return true;
+    return DEF_FSM_TRUE;
 }
 
-bool checkTransStandby2A( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm )
+fsm_bool_t checkTransStandby2A( fsm_state_t from, fsm_state_t to, void *fsm )
 {
     UNUSED( from );
     UNUSED( to );
@@ -97,13 +97,13 @@ bool checkTransStandby2A( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *
 
     if ( ( rand() % 10 ) >= 5 ) {
         printf( "mock checkTransStandby2A failed\n" );
-        return false;
+        return DEF_FSM_FALSE;
     } else {
-        return true;
+        return DEF_FSM_TRUE;
     }
 }
 
-bool checkTransA2B( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm )
+fsm_bool_t checkTransA2B( fsm_state_t from, fsm_state_t to, void *fsm )
 {
     UNUSED( from );
     UNUSED( to );
@@ -111,13 +111,13 @@ bool checkTransA2B( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm )
 
     if ( ( rand() % 10 ) >= 5 ) {
         printf( "mock checkTransA2B failed\n" );
-        return false;
+        return DEF_FSM_FALSE;
     } else {
-        return true;
+        return DEF_FSM_TRUE;
     }
 }
 
-bool checkTransA2C( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm )
+fsm_bool_t checkTransA2C( fsm_state_t from, fsm_state_t to, void *fsm )
 {
     UNUSED( from );
     UNUSED( to );
@@ -125,13 +125,13 @@ bool checkTransA2C( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm )
 
     if ( ( rand() % 10 ) >= 5 ) {
         printf( "mock checkTransA2C failed\n" );
-        return false;
+        return DEF_FSM_FALSE;
     } else {
-        return true;
+        return DEF_FSM_TRUE;
     }
 }
 
-bool checkTransB2C( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm )
+fsm_bool_t checkTransB2C( fsm_state_t from, fsm_state_t to, void *fsm )
 {
     UNUSED( from );
     UNUSED( to );
@@ -139,13 +139,13 @@ bool checkTransB2C( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm )
 
     if ( ( rand() % 10 ) >= 5 ) {
         printf( "mock checkTransB2C failed\n" );
-        return false;
+        return DEF_FSM_FALSE;
     } else {
-        return true;
+        return DEF_FSM_TRUE;
     }
 }
 
-bool checkTransC2Standby( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *fsm )
+fsm_bool_t checkTransC2Standby( fsm_state_t from, fsm_state_t to, void *fsm )
 {
     UNUSED( from );
     UNUSED( to );
@@ -153,9 +153,9 @@ bool checkTransC2Standby( TYPE_SWC_FSM_STATE from, TYPE_SWC_FSM_STATE to, void *
 
     if ( ( rand() % 10 ) >= 5 ) {
         printf( "mock checkTransC2Standby failed\n" );
-        return false;
+        return DEF_FSM_FALSE;
     } else {
-        return true;
+        return DEF_FSM_TRUE;
     }
 }
 
@@ -171,7 +171,7 @@ int32_t actionStandbyRoutine( void *item )
         s_StandbyRoutineInterval = 0;
 
         if ( ( s_innerInputChar == 'A' ) || ( s_innerInputChar == 'a' ) ) {
-            exampleFsmTransTo( DEF_STATE_Example_A, false );
+            exampleFsmTransTo( DEF_STATE_Example_A, DEF_FSM_FALSE );
 
             return 0;
         }
@@ -191,13 +191,13 @@ int32_t actionARoutine( void *item )
         s_ARoutineInterval = 0;
 
         if ( ( s_innerInputChar == 'B' ) || ( s_innerInputChar == 'b' ) ) {
-            exampleFsmTransTo( DEF_STATE_Example_B, false );
+            exampleFsmTransTo( DEF_STATE_Example_B, DEF_FSM_FALSE );
 
             return 0;
         }
 
         if ( ( s_innerInputChar == 'C' ) || ( s_innerInputChar == 'c' ) ) {
-            exampleFsmTransTo( DEF_STATE_Example_C, false );
+            exampleFsmTransTo( DEF_STATE_Example_C, DEF_FSM_FALSE );
 
             return 0;
         }
@@ -217,7 +217,7 @@ int32_t actionBRoutine( void *item )
         s_BRoutineInterval = 0;
     
         if ( ( s_innerInputChar == 'C' ) || ( s_innerInputChar == 'c' ) ) {
-            exampleFsmTransTo( DEF_STATE_Example_C, false );
+            exampleFsmTransTo( DEF_STATE_Example_C, DEF_FSM_FALSE );
 
             return 0;
         }
@@ -237,7 +237,7 @@ int32_t actionCRoutine( void *item )
         s_CRoutineInterval = 0;
 
         if ( ( s_innerInputChar == 'S' ) || ( s_innerInputChar == 's' ) ) {
-            exampleFsmTransTo( DEF_STATE_Example_Standby, false );
+            exampleFsmTransTo( DEF_STATE_Example_Standby, DEF_FSM_FALSE );
 
             return 0;
         }
@@ -246,7 +246,7 @@ int32_t actionCRoutine( void *item )
 }
 
 // ============== main loop ==============
-static bool b_innerLoopEnable = true;
+static fsm_bool_t b_innerLoopEnable = DEF_FSM_TRUE;
 static void* task_100ms( void *arg )
 {
     UNUSED( arg );
@@ -291,7 +291,7 @@ int main(int argc, char const *argv[])
 
     while( ( s_innerInputChar != 'E' ) && ( s_innerInputChar != 'e' ) );
 
-    b_innerLoopEnable = false;
+    b_innerLoopEnable = DEF_FSM_FALSE;
     pthread_join( tidUpdate, NULL );
     pthread_join( tidTask, NULL );
 
