@@ -3,7 +3,7 @@
  * @file        SWC_Fsm.h
  * @author      ddkv587 ( ddkv587@gmail.com )
  * @brief 
- * @date        2025-09-18
+ * @date        2025-09-21
  * @details     
  * @copyright   Copyright (c) 2025
  * @note
@@ -14,7 +14,8 @@
  * <table>
  * <tr><th>Date        <th>Version  <th>Author          <th>Description
  * <tr><td>2024/03/04  <td>1.0      <td>                <td>init version
- * <tr><td>2025/09/18  <td>1.0      <td>                <td>make all in one header file
+ * <tr><td>2025/09/18  <td>1.1      <td>                <td>make all in one header file
+ * <tr><td>2025/09/21  <td>1.2      <td>                <td>add error type and handler
  * </table>
  */
 #ifndef SWC_FSM_H_
@@ -26,7 +27,8 @@
 extern "C" {
 #endif
 
-#define FSM_VERSION     1
+#define FSM_MAJOR_VERSION   1
+#define FSM_MINOR_VERSION   2
 
 // Inline control for debugging and optimization
 #ifdef FSM_DEBUG
@@ -58,7 +60,7 @@ typedef uint16_t                                fsm_state_t;
 //#define DEF_SWC_FSM_STATE_RESERVE               ( ( fsm_state_t )0U )
 #define DEF_SWC_FSM_STATE_INVALID               ( ( fsm_state_t )0xFFFFU )
 
-#define DECLARE_SWC_FSM_CONTEXT( _name, _fsmID, _fsmStateList, _fsmTransTable, _fsmCommonCheck, _fsmInitState, _fsmRoutineInterval, _fsmInit, _fsmRoutine, _fsmExit ) \
+#define DECLARE_SWC_FSM_CONTEXT( _name, _fsmID, _fsmStateList, _fsmTransTable, _fsmCommonCheck, _fsmErrorHandler, _fsmInitState, _fsmRoutineInterval, _fsmInit, _fsmRoutine, _fsmExit ) \
     static SWCFsmStateItem s_fsmState##_name[] = {_fsmStateList}; \
     static SWCFsmTransItem s_fsmTransTable##_name[] = {_fsmTransTable}; \
     static SWCFsmContext s_fsmContext##_name = { \
@@ -68,6 +70,7 @@ typedef uint16_t                                fsm_state_t;
         .fsmStateList           = ( s_fsmState##_name ), \
         .fsmTransTable          = ( s_fsmTransTable##_name ), \
         .fsmCommonCheck         = _fsmCommonCheck, \
+        .fsmErrorHandler        = _fsmErrorHandler, \
         .fsmStateSize           = sizeof( s_fsmState##_name ) / sizeof( SWCFsmStateItem ), \
         .fsmTransitionSize      = sizeof( s_fsmTransTable##_name ) / sizeof( SWCFsmTransItem ), \
         .fsmRoutineInterval     = _fsmRoutineInterval, \
@@ -98,9 +101,25 @@ typedef uint16_t                                fsm_state_t;
 #define DECLARE_SWC_FSM_STATES(...)        __VA_ARGS__
 #define DECLARE_SWC_FSM_TRANSITIONS(...)   __VA_ARGS__
 
-typedef fsm_bool_t          ( *ptrSWCFunFSMAction )( void *fsm );
-typedef fsm_bool_t          ( *ptrSWCFunTransferCheck )( fsm_state_t from, fsm_state_t to, void *fsm );
-typedef int32_t             ( *ptrSWCFunTransferAction )( void *fsm );
+typedef enum {
+    FSM_OK = 0,                         // 成功
+    FSM_ERR_NULL_CONTEXT = -1,          // 空上下文
+    FSM_ERR_INVALID_STATE = -2,         // 无效状态
+    FSM_ERR_NO_TRANSITION = -3,         // 无转换路径
+    FSM_ERR_CHECK_FAILED = -4,          // 转换检查失败
+    FSM_ERR_INIT_FAILED = -5,           // 初始化失败
+    FSM_ERR_ROUTINE_FAILED = -6,        // 周期性任务失败
+    FSM_ERR_STATE_ROUTINE_FAILED = -7, 
+    FSM_ERR_TOO_MANY_STATES = -8,       // 状态数超限
+    FSM_ERR_ENTRY_FAILED = -9,
+    FSM_ERR_EXIT_FAILED = -10,          // 退出失败
+    FSM_ERR_UNKNOWN = -11               // 未知错误
+} fsm_error_t;
+
+typedef fsm_error_t         ( *ptrSWCFunFSMAction )( void *context );
+typedef fsm_bool_t          ( *ptrSWCFunTransferCheck )( fsm_state_t from, fsm_state_t to, void *context );
+typedef fsm_error_t         ( *ptrSWCFunTransferAction )( void *state );
+typedef void                ( *ptrSWCFsmErrorHandler )( fsm_error_t error, fsm_state_t curState, fsm_state_t nextState, void *context );
 
 typedef struct
 {
@@ -133,6 +152,7 @@ typedef struct
     ptrSWCFunFSMAction              fsmInit;
     ptrSWCFunFSMAction              fsmRoutine;
     ptrSWCFunFSMAction              fsmExit;
+    ptrSWCFsmErrorHandler           fsmErrorHandler;
 } SWCFsmContext;
 
 #ifdef FSM_STATE_FF
@@ -166,6 +186,25 @@ SWCFsmStateItem* swcFsmGetCurStateItem( SWCFsmContext* context )
 }
 #endif
 
+#ifdef FSM_DEBUG
+    // define console output here
+    #include <stdio.h>
+    #define FSM_ERROR_HANDLER(context, error, curState, nextState) \
+        do { \
+            if ( context && context->fsmErrorHandler ) { \
+                context->fsmErrorHandler(error, curState, nextState, context); \
+            } \
+            fprintf( stderr, "[%s:%d]FSM Error %d: Current=%u, Next=%u\n", __FILE__, __LINE__, error, curState, nextState ); \
+        } while (0)
+#else
+    #define FSM_ERROR_HANDLER(context, error, curState, nextState) \
+        do { \
+            if ( context && context->fsmErrorHandler ) { \
+                context->fsmErrorHandler(error, curState, nextState, context); \
+            } \
+        } while (0)
+#endif
+
 #ifdef FSM_IMPLEMENTATION
 #define FSM_NO_IMPL
 #endif
@@ -188,7 +227,7 @@ fsm_state_t swcFsmGetPreState( SWCFsmContext* context )
 }
 
 FSM_FUNC
-int32_t swcFsmTransTo( fsm_state_t state, fsm_bool_t bForce, SWCFsmContext* context )
+fsm_error_t swcFsmTransTo( fsm_state_t state, fsm_bool_t bForce, SWCFsmContext* context )
 {
     uint8_t index = 0;
     int32_t ret = -1;   // not match
@@ -205,23 +244,36 @@ int32_t swcFsmTransTo( fsm_state_t state, fsm_bool_t bForce, SWCFsmContext* cont
     UNUSED( curStateItem );
     UNUSED( nextStateItem );
 
-    if ( ( !context ) || ( state == DEF_SWC_FSM_STATE_INVALID ) ) return -1;
+    if ( !context ) {
+        FSM_ERROR_HANDLER(context, FSM_ERR_NULL_CONTEXT, DEF_SWC_FSM_STATE_INVALID, state);
+        return FSM_ERR_NULL_CONTEXT;
+    }
+    
+    if ( state == DEF_SWC_FSM_STATE_INVALID ) {
+        FSM_ERROR_HANDLER(context, FSM_ERR_INVALID_STATE, context->curState, state);
+        return FSM_ERR_INVALID_STATE;
+    }
 
-    if ( ( bForce == DEF_FSM_FALSE ) && ( context->curState == state ) ) return 0;
+    if ( ( bForce == DEF_FSM_FALSE ) && ( context->curState == state ) ) return FSM_OK;
 
     for ( index = 0; index < context->fsmTransitionSize; ++index ) {
-        if ( context->fsmTransTable[index].nextState == state ) {
-            if ( bForce == DEF_FSM_TRUE ) {
+        if ( context->fsmTransTable[index].nextState == state ) {   // make sure next state in trans table
+            if ( bForce == DEF_FSM_FALSE ) {
+                curfsmTransItem = &( context->fsmTransTable[index] );
+                if ( context->fsmTransTable[index].curState == context->curState ) {
+                    if ( ( !( context->fsmCommonCheck ) || ( ( *( context->fsmCommonCheck ) ) ( context->curState, state, context ) ) == DEF_FSM_TRUE ) && \
+                        ( !( curfsmTransItem->transCheck ) || ( ( *( curfsmTransItem->transCheck ) ) ( context->curState, state, context ) ) ) == DEF_FSM_TRUE ) {
+                        bTransition = DEF_FSM_TRUE;
+                        break;
+                    } else {
+                        FSM_ERROR_HANDLER(context, FSM_ERR_CHECK_FAILED, context->curState, state);
+                        return FSM_ERR_CHECK_FAILED;
+                    }
+                }
+            } else {
+                // skip all check
                 bTransition = DEF_FSM_TRUE;
                 break;
-            } else {
-                curfsmTransItem = &( context->fsmTransTable[index] );
-                if ( ( context->fsmTransTable[index].curState == context->curState ) && \
-                        ( !( context->fsmCommonCheck ) || ( ( *( context->fsmCommonCheck  ) ) ( context->curState, state, context ) ) == DEF_FSM_TRUE ) && \
-                        ( !( curfsmTransItem->transCheck ) || ( ( *( curfsmTransItem->transCheck ) ) ( context->curState, state, context ) ) ) == DEF_FSM_TRUE ) {
-                    bTransition = DEF_FSM_TRUE;
-                    break;
-                }
             }
         }
     }
@@ -232,12 +284,18 @@ int32_t swcFsmTransTo( fsm_state_t state, fsm_bool_t bForce, SWCFsmContext* cont
 
         if ( curStateItem && curStateItem->exit ) {
             // call exit action for cur state
-            ( *( curStateItem->exit ) ) ( curStateItem );
+            if ( ( *( curStateItem->exit ) ) ( curStateItem ) != FSM_OK ) {
+                FSM_ERROR_HANDLER(context, FSM_ERR_EXIT_FAILED, context->curState, state);
+                return FSM_ERR_EXIT_FAILED;
+            }
         }
 
         if ( nextStateItem && nextStateItem->entry ) {
             // call entry action for next state
-            ret = ( *( nextStateItem->entry ) ) ( nextStateItem );
+            if ( ( *( nextStateItem->entry ) ) ( nextStateItem ) != FSM_OK ) {
+                FSM_ERROR_HANDLER(context, FSM_ERR_ENTRY_FAILED, context->curState, state);
+                return FSM_ERR_ENTRY_FAILED;
+            }
         }
 
         // update state
@@ -245,22 +303,34 @@ int32_t swcFsmTransTo( fsm_state_t state, fsm_bool_t bForce, SWCFsmContext* cont
             context->preState = context->curState;
         }
         context->curState = state;
-    }
+        return FSM_OK;
+    } else {
+        FSM_ERROR_HANDLER( context, FSM_ERR_NO_TRANSITION, context->curState, state );
 
-    return ret;
+        return FSM_ERR_NO_TRANSITION;
+    }
 }
 
 FSM_FUNC
-fsm_bool_t swcFsmInit( SWCFsmContext* context )
+fsm_error_t swcFsmInit( SWCFsmContext* context )
 {
-    if ( context ) {
-        if ( ( context->fsmInit ) && !( ( *( context->fsmInit ) )( context ) ) ) return DEF_FSM_FALSE;
-
-        // transfer to init state
-        return ( 0 == swcFsmTransTo( context->initState, DEF_FSM_TRUE, context ) );
+    if ( !context ) {
+        FSM_ERROR_HANDLER(context, FSM_ERR_NULL_CONTEXT, DEF_SWC_FSM_STATE_INVALID, DEF_SWC_FSM_STATE_INVALID);
+        return FSM_ERR_NULL_CONTEXT;
     }
 
-    return DEF_FSM_TRUE;
+    if ( ( context->fsmInit ) && ( ( *( context->fsmInit ) )( context ) != FSM_OK ) ) {
+        FSM_ERROR_HANDLER( context, FSM_ERR_INIT_FAILED, DEF_SWC_FSM_STATE_INVALID, context->initState );
+        return FSM_ERR_INIT_FAILED;
+    }
+
+    // transfer to init state
+    if ( swcFsmTransTo( context->initState, DEF_FSM_TRUE, context ) != FSM_OK ) {
+        FSM_ERROR_HANDLER( context, FSM_ERR_NO_TRANSITION, DEF_SWC_FSM_STATE_INVALID, context->initState );
+        return FSM_ERR_NO_TRANSITION;
+    }
+
+    return FSM_OK;
 }
 
 FSM_FUNC
@@ -270,13 +340,24 @@ void swcFsmRoutine( SWCFsmContext* context )
 
     UNUSED( state );
 
-    if ( !context ) return;
+    if ( !context ) {
+        FSM_ERROR_HANDLER(context, FSM_ERR_NULL_CONTEXT, DEF_SWC_FSM_STATE_INVALID, DEF_SWC_FSM_STATE_INVALID);
+        return;
+    }
 
-    if ( context->fsmRoutine )  ( *( context->fsmRoutine ) )( context );
+    if ( context->fsmRoutine ) {
+        if ( ( *( context->fsmRoutine ) )( context ) != FSM_OK ) {
+            FSM_ERROR_HANDLER(context, FSM_ERR_ROUTINE_FAILED, context->curState, DEF_SWC_FSM_STATE_INVALID);
+        }
+    }
 
     state = swcFsmGetCurStateItem( context );
 
-    if ( state && state->routine )  ( *( state->routine ) )( state );
+    if ( state && state->routine ) {
+        if ( ( *( state->routine ) )( state ) != FSM_OK ) {
+            FSM_ERROR_HANDLER(context, FSM_ERR_STATE_ROUTINE_FAILED, context->curState, DEF_SWC_FSM_STATE_INVALID);
+        }
+    }
 }
 
 FSM_FUNC
@@ -286,30 +367,44 @@ void swcFsmExit( SWCFsmContext* context )
 
     UNUSED( state );
 
-    if ( !context ) return;
+    if ( !context ) {
+        FSM_ERROR_HANDLER( context, FSM_ERR_NULL_CONTEXT, DEF_SWC_FSM_STATE_INVALID, DEF_SWC_FSM_STATE_INVALID );
+        return;
+    }
 
     state = swcFsmGetCurStateItem( context );
 
-    if ( state && state->exit )  ( *( state->exit ) )( state );
+    if ( state && state->exit ) {
+        if ( ( *( state->exit ) )( state ) != FSM_OK ) {
+            FSM_ERROR_HANDLER( context, FSM_ERR_EXIT_FAILED, context->curState, DEF_SWC_FSM_STATE_INVALID );
+        }
+    }
 
-    if ( context->fsmExit )  ( *( context->fsmExit ) )( context );
+    if ( context->fsmExit ) {
+        if ( ( *( context->fsmExit ) )( context ) != FSM_OK ) {
+            FSM_ERROR_HANDLER( context, FSM_ERR_EXIT_FAILED, context->curState, DEF_SWC_FSM_STATE_INVALID );
+        }
+    }
 }
 
 FSM_FUNC
-int32_t swcFsmGoBack( fsm_bool_t bForce, SWCFsmContext* context )
+fsm_error_t swcFsmGoBack( fsm_bool_t bForce, SWCFsmContext* context )
 {
-    if ( !context )     return -1;
+    if ( !context ) {
+        FSM_ERROR_HANDLER( context, FSM_ERR_NULL_CONTEXT, DEF_SWC_FSM_STATE_INVALID, DEF_SWC_FSM_STATE_INVALID );
+        return FSM_ERR_NULL_CONTEXT;
+    }
 
     return swcFsmTransTo( context->preState, bForce, context );
 }
 
 #else
 // implement these function in .c if defined FSM_IMPLEMENTATION 
-extern fsm_bool_t                   swcFsmInit( SWCFsmContext* context );
+extern fsm_error_t                  swcFsmInit( SWCFsmContext* context );
 extern void                         swcFsmRoutine( SWCFsmContext* fsm );
 extern void                         swcFsmExit( SWCFsmContext* fsm );
-extern int32_t                      swcFsmTransTo( fsm_state_t state, fsm_bool_t bForce, SWCFsmContext* fsm );
-extern int32_t                      swcFsmGoBack( fsm_bool_t bForce, SWCFsmContext* fsm );
+extern fsm_error_t                  swcFsmTransTo( fsm_state_t state, fsm_bool_t bForce, SWCFsmContext* fsm );
+extern fsm_error_t                  swcFsmGoBack( fsm_bool_t bForce, SWCFsmContext* fsm );
 
 extern fsm_state_t                  swcFsmGetCurState( SWCFsmContext* fsm );
 extern fsm_state_t                  swcFsmGetPreState( SWCFsmContext* fsm );

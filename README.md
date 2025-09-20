@@ -110,6 +110,53 @@ typedef enum {
 } FSM_Event;
 ```
 
+### Error Handling
+
+The library provides comprehensive error handling with detailed error codes and optional callbacks:
+
+#### Error Codes
+```c
+typedef enum {
+    FSM_OK = 0,                         // 成功
+    FSM_ERR_NULL_CONTEXT = -1,          // 空上下文
+    FSM_ERR_INVALID_STATE = -2,         // 无效状态
+    FSM_ERR_NO_TRANSITION = -3,         // 无转换路径
+    FSM_ERR_CHECK_FAILED = -4,          // 转换检查失败
+    FSM_ERR_INIT_FAILED = -5,           // 初始化失败
+    FSM_ERR_ROUTINE_FAILED = -6,        // 周期性任务失败
+    FSM_ERR_STATE_ROUTINE_FAILED = -7,  // 状态例程失败
+    FSM_ERR_TOO_MANY_STATES = -8,       // 状态数超限
+    FSM_ERR_ENTRY_FAILED = -9,          // 进入动作失败
+    FSM_ERR_EXIT_FAILED = -10,          // 退出动作失败
+    FSM_ERR_UNKNOWN = -11               // 未知错误
+} fsm_error_t;
+```
+
+#### Error Callback
+```c
+typedef void (*ptrSWCFsmErrorHandler)(fsm_error_t error, fsm_state_t curState, fsm_state_t nextState, void *context);
+```
+
+#### Custom Error Handler Example
+```c
+void myErrorHandler(fsm_error_t error, fsm_state_t curState, fsm_state_t nextState, SWCFsmContext *context) {
+    const char *errorMsg;
+    switch (error) {
+        case FSM_ERR_NULL_CONTEXT: errorMsg = "Null context"; break;
+        case FSM_ERR_INVALID_STATE: errorMsg = "Invalid state"; break;
+        case FSM_ERR_NO_TRANSITION: errorMsg = "No transition path"; break;
+        case FSM_ERR_CHECK_FAILED: errorMsg = "Transition check failed"; break;
+        case FSM_ERR_INIT_FAILED: errorMsg = "Initialization failed"; break;
+        case FSM_ERR_ROUTINE_FAILED: errorMsg = "Routine failed"; break;
+        case FSM_ERR_TOO_MANY_STATES: errorMsg = "Too many states"; break;
+        case FSM_ERR_ENTRY_FAILED: errorMsg = "Entry action failed"; break;
+        case FSM_ERR_EXIT_FAILED: errorMsg = "Exit action failed"; break;
+        default: errorMsg = "Unknown error"; break;
+    }
+    printf("FSM Error: %s (code=%d, cur=%u, next=%u)\n", errorMsg, (int)error, (unsigned)curState, (unsigned)nextState);
+}
+```
+
 ### Defining the FSM Context
 
 Use the `DECLARE_SWC_FSM_CONTEXT` macro to define the FSM context, including states, transitions, and callbacks:
@@ -164,9 +211,9 @@ fsm_bool_t transCheckAtoB(fsm_state_t from, fsm_state_t to, void *fsm) {
 }
 
 // State action callbacks
-int32_t stateAEntry(void *fsm) { printf("Enter State A\n"); return 0; }
-int32_t stateARoutine(void *fsm) { return 0; }
-int32_t stateAExit(void *fsm) { printf("Exit State A\n"); return 0; }
+fsm_error_t stateAEntry(void *fsm) { printf("Enter State A\n"); return FSM_OK; }
+fsm_error_t stateARoutine(void *fsm) { return FSM_OK; }
+fsm_error_t stateAExit(void *fsm) { printf("Exit State A\n"); return FSM_OK; }
 
 // Define states and transitions
 #define FSM_STATE_LIST \
@@ -183,7 +230,7 @@ int32_t stateAExit(void *fsm) { printf("Exit State A\n"); return 0; }
     DECLARE_SWC_FSM_TRANSITION(FSM_STATE_C, FSM_STATE_STANDBY, NULL)
 
 // Declare FSM context
-DECLARE_SWC_FSM_CONTEXT(MyFSM, 1, DECLARE_SWC_FSM_STATES(FSM_STATE_LIST), DECLARE_SWC_FSM_TRANSITIONS(FSM_TRANS_TABLE), commonCheck, FSM_STATE_STANDBY, 1000, NULL, NULL, NULL)
+DECLARE_SWC_FSM_CONTEXT(MyFSM, 1, DECLARE_SWC_FSM_STATES(FSM_STATE_LIST), DECLARE_SWC_FSM_TRANSITIONS(FSM_TRANS_TABLE), commonCheck, NULL, FSM_STATE_STANDBY, 1000, NULL, NULL, NULL)
 
 int main(void) {
     SWCFsmContext *context = DECLARE_SWC_FSM_CONTEXT_REF(MyFSM);

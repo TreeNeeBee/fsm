@@ -27,28 +27,30 @@ static fsm_bool_t         checkTransC2Standby( fsm_state_t from, fsm_state_t to,
 // ======== transfer check end ======== 
 
 // ======== state action ======== 
-static int32_t      actionStandbyPrepare( void *item );
-static int32_t      actionStandbyRoutine( void *item );
-static int32_t      actionStandbyExit( void *item );
+static fsm_error_t      actionStandbyPrepare( void *item );
+static fsm_error_t      actionStandbyRoutine( void *item );
+static fsm_error_t      actionStandbyExit( void *item );
 
-static int32_t      actionAPrepare( void *item );
-static int32_t      actionARoutine( void *item );
-static int32_t      actionAExit( void *item );
+static fsm_error_t      actionAPrepare( void *item );
+static fsm_error_t      actionARoutine( void *item );
+static fsm_error_t      actionAExit( void *item );
 
-static int32_t      actionBPrepare( void *item );
-static int32_t      actionBRoutine( void *item );
-static int32_t      actionBExit( void *item );
+static fsm_error_t      actionBPrepare( void *item );
+static fsm_error_t      actionBRoutine( void *item );
+static fsm_error_t      actionBExit( void *item );
 
-static int32_t      actionCPrepare( void *item );
-static int32_t      actionCRoutine( void *item );
-static int32_t      actionCExit( void *item );
+static fsm_error_t      actionCPrepare( void *item );
+static fsm_error_t      actionCRoutine( void *item );
+static fsm_error_t      actionCExit( void *item );
 // ======== state action end ======== 
 
 // ======== fsm ======== 
-static fsm_bool_t       exampleFsmInnerInit( void *fsm );
-static fsm_bool_t       exampleFsmInnerRoutine( void *fsm );
-static fsm_bool_t       exampleFsmInnerExit( void *fsm );
-static int32_t          exampleFsmTransTo( fsm_state_t state, fsm_bool_t bForce );
+static fsm_error_t      exampleFsmInnerInit( void *fsm );
+static fsm_error_t      exampleFsmInnerRoutine( void *fsm );
+static fsm_error_t      exampleFsmInnerExit( void *fsm );
+static fsm_error_t      exampleFsmTransTo( fsm_state_t state, fsm_bool_t bForce );
+
+static void             exampleFsmErrorHandler( fsm_error_t error, fsm_state_t curState, fsm_state_t nextState, void *fsm );
 // ======== fsm end ======== 
 
 #define SWC_FSM_CONTEXT_ID_EXAMPLE              ( 1U )
@@ -68,16 +70,21 @@ DECLARE_SWC_FSM_CONTEXT( Example, SWC_FSM_CONTEXT_ID_EXAMPLE,
                 DECLARE_SWC_FSM_TRANSITION( DEF_STATE_Example_B, DEF_STATE_Example_C, checkTransB2C ),
                 DECLARE_SWC_FSM_TRANSITION( DEF_STATE_Example_C, DEF_STATE_Example_Standby, checkTransC2Standby ),
             ),
-            checkTransEnvironment, DEF_STATE_Example_Standby, SWC_FSM_ROUTINE_INTERVAL_EXAMPLE, exampleFsmInnerInit, exampleFsmInnerRoutine, exampleFsmInnerExit )
+            checkTransEnvironment, exampleFsmErrorHandler, DEF_STATE_Example_Standby, SWC_FSM_ROUTINE_INTERVAL_EXAMPLE, exampleFsmInnerInit, exampleFsmInnerRoutine, exampleFsmInnerExit )
 
-fsm_bool_t exampleFsmInnerInit( void *fsm )       { UNUSED( fsm ); printf( "exampleFsmInnerInit\n" ); return DEF_FSM_TRUE; }
-fsm_bool_t exampleFsmInnerRoutine( void *fsm )    { UNUSED( fsm ); return DEF_FSM_TRUE; }
-fsm_bool_t exampleFsmInnerExit( void *fsm )       { UNUSED( fsm ); printf( "exampleFsmInnerExit\n" ); return DEF_FSM_TRUE; }
+fsm_error_t exampleFsmInnerInit( void *fsm )       { UNUSED( fsm ); printf( "exampleFsmInnerInit\n" ); return FSM_OK; }
+fsm_error_t exampleFsmInnerRoutine( void *fsm )    { UNUSED( fsm ); return FSM_OK; }
+fsm_error_t exampleFsmInnerExit( void *fsm )       { UNUSED( fsm ); printf( "exampleFsmInnerExit\n" ); return FSM_OK; }
 
-int32_t exampleFsmTransTo( fsm_state_t state, fsm_bool_t bForce )
+fsm_error_t exampleFsmTransTo( fsm_state_t state, fsm_bool_t bForce )
 {
     printf( "exampleFsmTransTo from %d to %d, %d\n", swcFsmGetCurState( DECLARE_SWC_FSM_CONTEXT_REF( Example ) ), state, bForce ? 1 : 0 );
     return swcFsmTransTo( state, bForce, DECLARE_SWC_FSM_CONTEXT_REF( Example ) );
+}
+
+void exampleFsmErrorHandler( fsm_error_t error, fsm_state_t curState, fsm_state_t nextState, void *fsm )
+{
+    fprintf( stderr, "[%s:%d]FSM Error %d: Current=%u, Next=%u\n", __FILE__, __LINE__, error, curState, nextState );
 }
 
 fsm_bool_t checkTransEnvironment( fsm_state_t from, fsm_state_t to, void *fsm )
@@ -160,9 +167,9 @@ fsm_bool_t checkTransC2Standby( fsm_state_t from, fsm_state_t to, void *fsm )
 }
 
 static uint32_t s_StandbyRoutineInterval = 0;
-int32_t actionStandbyPrepare( void *item )  { UNUSED( item ); printf( "actionStandbyPrepare\n" ); s_StandbyRoutineInterval = 0; return 0; }
-int32_t actionStandbyExit( void *item )     { UNUSED( item ); printf( "actionStandbyExit\n" ); s_StandbyRoutineInterval = 0; return 0; }
-int32_t actionStandbyRoutine( void *item )
+fsm_error_t actionStandbyPrepare( void *item )  { UNUSED( item ); printf( "actionStandbyPrepare\n" ); s_StandbyRoutineInterval = 0; return FSM_OK; }
+fsm_error_t actionStandbyExit( void *item )     { UNUSED( item ); printf( "actionStandbyExit\n" ); s_StandbyRoutineInterval = 0; return FSM_OK; }
+fsm_error_t actionStandbyRoutine( void *item )
 { 
     SWCFsmStateItem *state = ( SWCFsmStateItem * )item;
 
@@ -171,18 +178,16 @@ int32_t actionStandbyRoutine( void *item )
         s_StandbyRoutineInterval = 0;
 
         if ( ( s_innerInputChar == 'A' ) || ( s_innerInputChar == 'a' ) ) {
-            exampleFsmTransTo( DEF_STATE_Example_A, DEF_FSM_FALSE );
-
-            return 0;
+            return exampleFsmTransTo( DEF_STATE_Example_A, DEF_FSM_FALSE );
         }
     }
-    return 0; 
+    return FSM_OK; 
 }
 
 static uint32_t s_ARoutineInterval = 0;
-int32_t actionAPrepare( void *item )        { UNUSED( item ); printf( "actionAPrepare\n" ); s_ARoutineInterval = 0; return 0; }
-int32_t actionAExit( void *item )           { UNUSED( item ); printf( "actionAExit\n" ); s_ARoutineInterval = 0; return 0; }
-int32_t actionARoutine( void *item )
+fsm_error_t actionAPrepare( void *item )        { UNUSED( item ); printf( "actionAPrepare\n" ); s_ARoutineInterval = 0; return FSM_OK; }
+fsm_error_t actionAExit( void *item )           { UNUSED( item ); printf( "actionAExit\n" ); s_ARoutineInterval = 0; return FSM_OK; }
+fsm_error_t actionARoutine( void *item )
 { 
     SWCFsmStateItem *state = ( SWCFsmStateItem * )item;
 
@@ -191,24 +196,20 @@ int32_t actionARoutine( void *item )
         s_ARoutineInterval = 0;
 
         if ( ( s_innerInputChar == 'B' ) || ( s_innerInputChar == 'b' ) ) {
-            exampleFsmTransTo( DEF_STATE_Example_B, DEF_FSM_FALSE );
-
-            return 0;
+            return exampleFsmTransTo( DEF_STATE_Example_B, DEF_FSM_FALSE );
         }
 
         if ( ( s_innerInputChar == 'C' ) || ( s_innerInputChar == 'c' ) ) {
-            exampleFsmTransTo( DEF_STATE_Example_C, DEF_FSM_FALSE );
-
-            return 0;
+            return exampleFsmTransTo( DEF_STATE_Example_C, DEF_FSM_FALSE );
         }
     }
-    return 0; 
+    return FSM_OK; 
 }
 
 static uint32_t s_BRoutineInterval = 0;
-int32_t actionBPrepare( void *item )        { UNUSED( item ); printf( "actionBPrepare\n" ); s_BRoutineInterval = 0; return 0; }
-int32_t actionBExit( void *item )           { UNUSED( item ); printf( "actionBExit\n" ); s_BRoutineInterval = 0; return 0; }
-int32_t actionBRoutine( void *item )
+fsm_error_t actionBPrepare( void *item )        { UNUSED( item ); printf( "actionBPrepare\n" ); s_BRoutineInterval = 0; return FSM_OK; }
+fsm_error_t actionBExit( void *item )           { UNUSED( item ); printf( "actionBExit\n" ); s_BRoutineInterval = 0; return FSM_OK; }
+fsm_error_t actionBRoutine( void *item )
 { 
     SWCFsmStateItem *state = ( SWCFsmStateItem * )item;
 
@@ -217,18 +218,16 @@ int32_t actionBRoutine( void *item )
         s_BRoutineInterval = 0;
     
         if ( ( s_innerInputChar == 'C' ) || ( s_innerInputChar == 'c' ) ) {
-            exampleFsmTransTo( DEF_STATE_Example_C, DEF_FSM_FALSE );
-
-            return 0;
+            return exampleFsmTransTo( DEF_STATE_Example_C, DEF_FSM_FALSE );
         }
     }
-    return 0; 
+    return FSM_OK; 
 }
 
 static uint32_t s_CRoutineInterval = 0;
-int32_t actionCPrepare( void *item )        { UNUSED( item ); printf( "actionCPrepare\n" ); s_CRoutineInterval = 0; return 0; }
-int32_t actionCExit( void *item )           { UNUSED( item ); printf( "actionCExit\n" ); s_CRoutineInterval = 0; return 0; }
-int32_t actionCRoutine( void *item )
+fsm_error_t actionCPrepare( void *item )        { UNUSED( item ); printf( "actionCPrepare\n" ); s_CRoutineInterval = 0; return FSM_OK; }
+fsm_error_t actionCExit( void *item )           { UNUSED( item ); printf( "actionCExit\n" ); s_CRoutineInterval = 0; return FSM_OK; }
+fsm_error_t actionCRoutine( void *item )
 {
     SWCFsmStateItem *state = ( SWCFsmStateItem * )item;
 
@@ -237,12 +236,10 @@ int32_t actionCRoutine( void *item )
         s_CRoutineInterval = 0;
 
         if ( ( s_innerInputChar == 'S' ) || ( s_innerInputChar == 's' ) ) {
-            exampleFsmTransTo( DEF_STATE_Example_Standby, DEF_FSM_FALSE );
-
-            return 0;
+            return exampleFsmTransTo( DEF_STATE_Example_Standby, DEF_FSM_FALSE );
         }
     }
-    return 0;
+    return FSM_OK;
 }
 
 // ============== main loop ==============
